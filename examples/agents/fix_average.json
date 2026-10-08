@@ -1,0 +1,22 @@
+{
+  "attempts": [
+    {
+      "intent": "Switch floor division to true division. Does not handle the empty list, so the empty-input test is expected to fail and drive a repair.",
+      "edits": [
+        {
+          "path": "calc.py",
+          "content": "def average(values):\n    return sum(values) / len(values)\n"
+        }
+      ]
+    },
+    {
+      "intent": "Use true division and return 0.0 for an empty list.",
+      "edits": [
+        {
+          "path": "calc.py",
+          "content": "def average(values):\n    if not values:\n        return 0.0\n    return sum(values) / len(values)\n"
+        }
+      ]
+    }
+  ]
+}

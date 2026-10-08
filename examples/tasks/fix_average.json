@@ -1,0 +1,33 @@
+{
+  "task_id": "fix-average-001",
+  "task_type": "bug_fix",
+  "objective": "Make calc.average return the true arithmetic mean as a float, and 0.0 for empty input.",
+  "repository": "examples/sample_project",
+  "problem_description": "average() uses floor division, so average([1, 2, 3, 4]) returns 2 instead of 2.5, and it raises ZeroDivisionError on an empty list.",
+  "requirements": [
+    "Use true division so fractional means are preserved",
+    "Return 0.0 for an empty list"
+  ],
+  "acceptance_criteria": [
+    "python -m unittest discover -s tests -v exits 0",
+    "average([1, 2, 3, 4]) == 2.5",
+    "average([]) == 0.0"
+  ],
+  "constraints": [
+    "Change only calc.py",
+    "Standard library only"
+  ],
+  "allowed_files": ["calc.py"],
+  "required_tests": ["python -m unittest discover -s tests -v"],
+  "security_requirements": ["No secret-like literals in changed files"],
+  "permissions": ["READ_REPOSITORY", "WRITE_REPOSITORY", "EXECUTE_TESTS"],
+  "risk_level": "LOW",
+  "max_execution_seconds": 120,
+  "max_retries": 2,
+  "human_approval_required": true,
+  "completion_conditions": [
+    "All required tests pass",
+    "A human approves the review gate"
+  ],
+  "agent_script": "examples/agents/fix_average.json"
+}

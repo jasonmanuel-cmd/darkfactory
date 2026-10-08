@@ -1,0 +1,19 @@
+{
+  "workflows": [
+    {
+      "id": "wf.bug-fix.python-unittest.v1",
+      "name": "Python bug fix verified by unittest",
+      "description": "Stdlib-only Python bug fixes confined to an explicit file allowlist, verified by allowlisted unittest commands, and held at a human review gate before delivery.",
+      "task_types": ["bug_fix"],
+      "max_risk": "MEDIUM",
+      "allowed_permissions": ["READ_REPOSITORY", "WRITE_REPOSITORY", "EXECUTE_TESTS"],
+      "allowed_command_prefixes": ["python -m unittest", "python -m py_compile"],
+      "repairable_failures": ["TEST_FAILURE"],
+      "max_retries": 2,
+      "autonomy_level": 3,
+      "human_approval_required": true,
+      "rollback_strategy": "Originals are backed up under runs/<task>/backup before delivery. Rollback restores them and refuses if the source changed after delivery.",
+      "timeout_seconds": 600
+    }
+  ]
+}
