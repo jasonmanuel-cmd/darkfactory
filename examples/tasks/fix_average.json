@@ -29,5 +29,5 @@
     "All required tests pass",
     "A human approves the review gate"
   ],
-  "agent_script": "examples/agents/fix_average.json"
+  "agent": "scripted:examples/agents/fix_average.json"
 }

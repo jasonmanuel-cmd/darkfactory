@@ -19,7 +19,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from . import __version__
-from .agents import ScriptedAgent
+from .agents import build_agent
 from .classify import classify
 from .errors import AgentFailure, Block, Escalate, PolicyViolation, SpecError
 from .failures import RESPONSES, Action, Failure, diagnose
@@ -43,10 +43,11 @@ def _sha_json(payload: object) -> str:
 
 
 class Runner:
-    def __init__(self, root: Path, runs_dir: Path, workflows: dict[str, Workflow]):
+    def __init__(self, root: Path, runs_dir: Path, workflows: dict[str, Workflow], transport=None):
         self.root = Path(root)
         self.runs_dir = Path(runs_dir)
         self.workflows = workflows
+        self.transport = transport  # model client override; None uses the real Anthropic API
 
     def _resolve(self, raw: str) -> Path:
         path = Path(raw)
@@ -134,7 +135,8 @@ class Runner:
             env_keys=list(SAFE_ENV_KEYS),
         )
 
-        agent = ScriptedAgent(self._resolve(spec.agent_script))
+        agent = build_agent(spec, self.root, workspace, self.transport)
+        rec.record("agent_config", **agent.describe())
         self._execute_and_verify(rec, spec, workflow, perms, agent, baseline_dir, workspace, base_manifest, started)
 
         changes = changed_files(base_manifest, workspace)
@@ -168,7 +170,10 @@ class Runner:
 
             perms.check("coding_agent", "WRITE_REPOSITORY")
             proposal = agent.propose(attempt - 1, feedback)
-            rec.write_json(f"attempts/{attempt:02d}-proposal.json", {"intent": proposal.intent, "edits": proposal.edits})
+            rec.write_json(
+                f"attempts/{attempt:02d}-proposal.json",
+                {"intent": proposal.intent, "edits": proposal.edits, "raw_response": proposal.raw},
+            )
             rec.record(
                 "agent_proposal",
                 attempt=attempt,

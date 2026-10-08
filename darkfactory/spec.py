@@ -16,7 +16,8 @@ RISK_LEVELS = ("LOW", "MEDIUM", "HIGH", "CRITICAL")
 MAX_EXECUTION_SECONDS = 900
 MAX_RETRIES = 3
 
-STRING_FIELDS = ("task_id", "task_type", "objective", "repository", "problem_description", "risk_level", "agent_script")
+STRING_FIELDS = ("task_id", "task_type", "objective", "repository", "problem_description", "risk_level", "agent")
+AGENT_KINDS = ("scripted", "anthropic")
 LIST_FIELDS = (
     "requirements",
     "acceptance_criteria",
@@ -50,7 +51,7 @@ class TaskSpec:
     max_retries: int
     human_approval_required: bool
     completion_conditions: tuple[str, ...]
-    agent_script: str
+    agent: str  # "scripted:<path to proposals json>" or "anthropic:<model id>"
 
 
 def safe_relative_path(raw: object) -> str | None:
@@ -116,9 +117,12 @@ def _semantic_problems(spec: TaskSpec) -> list[str]:
     problems = []
     if not TASK_ID_RE.match(spec.task_id):
         problems.append(f"task_id {spec.task_id!r} must match {TASK_ID_RE.pattern}")
-    for name in ("task_type", "objective", "repository", "problem_description", "agent_script"):
+    for name in ("task_type", "objective", "repository", "problem_description"):
         if not getattr(spec, name).strip():
             problems.append(f"{name} must not be empty")
+    kind, _, arg = spec.agent.partition(":")
+    if kind not in AGENT_KINDS or not arg.strip():
+        problems.append(f"agent must be 'scripted:<path>' or 'anthropic:<model>', got {spec.agent!r}")
     for name in NONEMPTY_LISTS:
         if not getattr(spec, name):
             problems.append(f"{name} must not be empty")

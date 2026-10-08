@@ -49,7 +49,9 @@ runs/               generated run records (git-ignored)
 ```
 
 ## Adding a task
-Write a JSON spec with every field from `darkfactory/spec.py` (`TaskSpec`). `allowed_files` should be as narrow as the change allows. `required_tests` must start with a prefix from the workflow's `allowed_command_prefixes`. For now, `agent_script` points to a JSON file of proposals. A model-backed agent is not implemented yet.
+Write a JSON spec with every field from `darkfactory/spec.py` (`TaskSpec`). `allowed_files` should be as narrow as the change allows. `required_tests` must start with a prefix from the workflow's `allowed_command_prefixes`. The `agent` field picks the agent: `scripted:<path>` replays a JSON file of proposals, and `anthropic:<model>` asks an Anthropic model (requires `ANTHROPIC_API_KEY` in the environment).
+
+Using `anthropic:` sends the content of the task's `allowed_files` and the task text to the Anthropic API. Use it only on code you are allowed to send.
 
 ## Limitations of this MVP
 - **Isolation is weaker than the spec calls for.** Work happens in a temp copy with an environment allowlist, not in a container. There are no network or process limits.

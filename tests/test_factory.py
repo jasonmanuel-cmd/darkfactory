@@ -1,10 +1,13 @@
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from darkfactory.errors import SpecError
 from darkfactory.gate import approve, reject, rollback
@@ -58,7 +61,7 @@ class FactoryCase(unittest.TestCase):
         script = self.tmp / "agent.json"
         script.write_text(json.dumps({"attempts": attempts}), encoding="utf-8")
         spec = self.base_spec()
-        spec["agent_script"] = str(script)
+        spec["agent"] = f"scripted:{script}"
         spec.update(overrides)
         return spec
 
@@ -107,6 +110,23 @@ class PipelineTests(FactoryCase):
         self.assertEqual(rec.state, State.ESCALATED)
         self.assertEqual(self.escalation(rec)["category"], "TEST_FAILURE")
         self.assertEqual(len(self.events(rec, "verification")), 2)
+        self.assertEqual((self.repo / "calc.py").read_text(encoding="utf-8"), ORIGINAL_CALC)
+
+    def test_verification_past_time_budget_escalates_as_timeout(self):
+        slow = self.repo / "tests" / "test_slow.py"
+        slow.write_text(
+            "import time\nimport unittest\n\n\nclass SlowTests(unittest.TestCase):\n"
+            "    def test_slow(self):\n        time.sleep(60)\n",
+            encoding="utf-8",
+        )
+        spec = self.spec_with_script([attempt(GOOD_CALC)], max_execution_seconds=10)
+        started = time.monotonic()
+        rec = self.runner.run(spec)
+        elapsed = time.monotonic() - started
+
+        self.assertEqual(rec.state, State.ESCALATED)
+        self.assertEqual(self.escalation(rec)["category"], "TIMEOUT")
+        self.assertLess(elapsed, 40, "the verification subprocess must be killed at the budget, not run to completion")
         self.assertEqual((self.repo / "calc.py").read_text(encoding="utf-8"), ORIGINAL_CALC)
 
     def test_agent_script_exhaustion_is_agent_failure(self):
@@ -193,6 +213,73 @@ class PipelineTests(FactoryCase):
         self.runner.run(self.spec_with_script([attempt(BAD_CALC)], max_retries=0))
         with self.assertRaises(FactoryError):
             approve(self.runs, "fix-average-001", "tester")
+
+
+class FakeModel:
+    """Stands in for the Anthropic transport: returns scripted replies and records prompts."""
+
+    def __init__(self, *replies: str):
+        self.replies = list(replies)
+        self.prompts: list[tuple[str, str]] = []
+
+    def __call__(self, system: str, user: str) -> str:
+        self.prompts.append((system, user))
+        if not self.replies:
+            raise AssertionError("fake model called more times than scripted")
+        return self.replies.pop(0)
+
+
+def model_reply(content: str, path: str = "calc.py") -> str:
+    # Models often wrap JSON in prose or fences; the parser must cope with that.
+    body = json.dumps({"intent": "model attempt", "edits": [{"path": path, "content": content}]})
+    return f"Here is my proposal:\n```json\n{body}\n```"
+
+
+class ModelAgentTests(FactoryCase):
+    def model_spec(self, **overrides) -> dict:
+        spec = self.base_spec()
+        spec["agent"] = "anthropic:test-model"
+        spec.update(overrides)
+        return spec
+
+    def test_model_repairs_from_test_output_and_reaches_gate(self):
+        model = FakeModel(model_reply(BAD_CALC), model_reply(GOOD_CALC))
+        rec = Runner(ROOT, self.runs, REGISTRY, transport=model).run(self.model_spec())
+
+        self.assertEqual(rec.state, State.REVIEW_GATE)
+        self.assertEqual(rec.ledger.verify(), [])
+        self.assertEqual(len(model.prompts), 2)
+        self.assertIn("FAILED", model.prompts[1][1], "the repair prompt must carry the failing test output")
+        config = self.events(rec, "agent_config")[0]["data"]
+        self.assertEqual(config["model"], "test-model")
+        self.assertEqual((self.repo / "calc.py").read_text(encoding="utf-8"), ORIGINAL_CALC)
+
+    def test_model_edit_outside_allowlist_escalates(self):
+        model = FakeModel(model_reply(GOOD_CALC, path="tests/test_calc.py"))
+        rec = Runner(ROOT, self.runs, REGISTRY, transport=model).run(self.model_spec())
+        self.assertEqual(rec.state, State.ESCALATED)
+        self.assertEqual(self.escalation(rec)["category"], "POLICY_FAILURE")
+        self.assertEqual((self.repo / "tests" / "test_calc.py").read_text(encoding="utf-8"), ORIGINAL_TEST)
+
+    def test_model_output_without_json_is_agent_failure(self):
+        model = FakeModel("I'm not able to help with that.")
+        rec = Runner(ROOT, self.runs, REGISTRY, transport=model).run(self.model_spec())
+        self.assertEqual(rec.state, State.ESCALATED)
+        self.assertEqual(self.escalation(rec)["category"], "AGENT_FAILURE")
+
+    def test_missing_api_key_is_agent_failure(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            rec = Runner(ROOT, self.runs, REGISTRY).run(self.model_spec())
+        self.assertEqual(rec.state, State.ESCALATED)
+        self.assertEqual(self.escalation(rec)["category"], "AGENT_FAILURE")
+        self.assertIn("ANTHROPIC_API_KEY", self.escalation(rec)["what_happened"])
+
+    def test_unknown_agent_kind_is_blocked(self):
+        spec = self.base_spec()
+        spec["agent"] = "oracle:magic"
+        rec = self.runner.run(spec)
+        self.assertEqual(rec.state, State.BLOCKED)
 
 
 class SpecTests(unittest.TestCase):
