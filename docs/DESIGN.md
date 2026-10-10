@@ -3,7 +3,7 @@
 Status key: **built** = implemented and tested in this repo; **designed** = specified here, not implemented.
 
 ## 1. System architecture — built
-A single Python package (`darkfactory/`) with a linear, state-driven pipeline. Each stage either advances, blocks the task (invalid input), or escalates to a human with an evidence report. Model-backed agents are not included in this MVP; the agent is a replaceable interface (`agents.py`).
+A single Python package (`darkfactory/`) with a linear, state-driven pipeline. Each stage either advances, blocks the task (invalid input), or escalates to a human with an evidence report. The agent is a replaceable interface (`agents.py`): a scripted agent for offline runs and an Anthropic model agent for live runs.
 
 ## 2. Component diagram — built
 
@@ -47,7 +47,7 @@ Defined in `states.py`. Every transition is validated and ledgered. Key properti
 Capabilities are defined in `permissions.py`. A task requests a subset, and the workflow caps it. Actors: `planner` (read), `coding_agent` (read + write), `verifier` (read + execute tests), and `deliverer` (read + write). Every decision is ledgered as `permission_decision`. The coding agent cannot run tests, and the verifier cannot write.
 
 ## 7. Agent architecture — built (minimal)
-`Agent.propose(attempt, feedback) -> Proposal(intent, edits)`. The only implementation is `ScriptedAgent`, which replays a JSON file of proposals. This is deterministic and needs no network, which is what makes the repair loop testable. A model-backed adapter implements the same method and is **designed, not built**. The planning, research, review, and security agents from the spec are **designed, not built**. Each would be another actor with its own grant set.
+`Agent.propose(attempt, feedback) -> Proposal(intent, edits)`. Two implementations exist. `ScriptedAgent` replays a JSON file of proposals; it is deterministic and needs no network, which is what makes the repair loop testable. `ModelAgent` (`agent: "anthropic:<model>"`) uses the Anthropic Messages API via `urllib`; it is built and tested offline with an injected transport, but a live call has not yet been run. The planning, research, review, and security agents from the spec are **designed, not built**. Each would be another actor with its own grant set.
 
 ## 8. Workflow architecture — built
 `workflows/registry.json` is data-driven. Each entry gives task types, max risk, permissions, command allowlist, repairable failure categories, retry cap, autonomy level, and whether a human gate is required. Adding a workflow that reuses the existing stages needs no code change.
