@@ -37,8 +37,8 @@ Defined in `states.py`. Every transition is validated and ledgered. Key properti
 ## 5. Security model — built (partial)
 - Least privilege: task capabilities ∩ workflow allowance ∩ per-actor grant (`permissions.py`).
 - Path allowlist: agent edits are confined to `allowed_files`; the spec validator rejects absolute paths, drive letters, and `..`.
-- Command allowlist: only `python -m unittest` / `py_compile` prefixes run, with `shell=False` and `python` mapped to the factory's own interpreter.
-- Secret isolation: verification runs with an environment allowlist (`PATH`, `SYSTEMROOT`, `TEMP`, `TMP`) plus hash-seed and bytecode pinning.
+- Command allowlist: only allowlisted workflow prefixes run (`python -m unittest`, `dotnet test`, `dotnet build`, `py_compile`), with `shell=False` and `python` mapped to the factory's own interpreter.
+- Secret isolation: verification runs with an environment allowlist (`PATH`, `SYSTEMROOT`, `TEMP`, `TMP`, plus necessary Windows OS and SDK paths) plus hash-seed and bytecode pinning.
 - Secret scan of edited files. It reports rule and location, never the matched value.
 - Source-of-truth protection: the agent works in a copy; delivery refuses to overwrite drifted files.
 - **Designed, not built:** container or VM isolation, network egress controls, process and memory limits, and credential expiry. The MVP relies on a temp working copy plus the restricted environment, and that is weaker than a real sandbox.
@@ -84,10 +84,10 @@ runs/          generated per-run records (git-ignored)
 ## 14. Development roadmap — see README "Next steps"
 
 ## 15. MVP definition — built
-One workflow (bug fix in a Python project, verified by unittest, gated for human approval), an end-to-end path through repair, gate, delivery, and rollback, and the complete audit trail.
+Two workflows (bug fix in a Python project verified by unittest, and C#/.NET bug fix verified by dotnet test, gated for human approval), an end-to-end path through repair, gate, delivery, and rollback, and the complete audit trail.
 
 ## 16. Testing strategy — built
-`tests/test_factory.py` (25 tests) covers the happy path with repair, policy and secret escalations, retry exhaustion, agent script exhaustion, spec and risk blocking, permission denial, drift protection, rejection, rollback and its refusal after a later edit, state-machine rules, and ledger tamper and deletion detection. Every pipeline test uses a temp copy of the sample project, so the real repo is never modified by tests.
+`tests/test_factory.py` (32 tests) covers the happy path with repair, policy and secret escalations, retry exhaustion, agent script exhaustion, spec and risk blocking, permission denial, drift protection, rejection, rollback and its refusal after a later edit, state-machine rules, and ledger tamper and deletion detection, plus .NET workflow classification and command parsing. Every pipeline test uses a temp copy of the sample project, so the real repo is never modified by tests.
 
 ## 17. Deployment strategy — designed
 Currently a local CLI run on a developer machine. A container image with a pinned Python version and a read-only source mount is the intended next step.

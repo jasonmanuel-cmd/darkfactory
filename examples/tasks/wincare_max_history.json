@@ -1,0 +1,41 @@
+{
+  "task_id": "wincare-max-history-001",
+  "task_type": "bug_fix",
+  "objective": "Expose MaxHistoryEntries public property on HistoryStore to allow inspection of max capacity.",
+  "repository": "C:/Users/blunt/Desktop/wincare-desktop",
+  "problem_description": "HistoryStore encapsulates MaxEntries as a private constant without exposing a public getter for the configured capacity.",
+  "requirements": [
+    "Add a public int property MaxHistoryEntries => MaxEntries; to HistoryStore in Services/HistoryStore.cs",
+    "Preserve all existing functionality and ensure all tests continue to pass"
+  ],
+  "acceptance_criteria": [
+    "dotnet test WinCareDesktop.Tests/WinCareDesktop.Tests.csproj exits 0",
+    "All tests pass"
+  ],
+  "constraints": [
+    "Change only Services/HistoryStore.cs"
+  ],
+  "allowed_files": [
+    "Services/HistoryStore.cs"
+  ],
+  "required_tests": [
+    "dotnet test WinCareDesktop.Tests/WinCareDesktop.Tests.csproj --filter FullyQualifiedName~HistoryStoreTests"
+  ],
+  "security_requirements": [
+    "No secret-like literals in changed files"
+  ],
+  "permissions": [
+    "READ_REPOSITORY",
+    "WRITE_REPOSITORY",
+    "EXECUTE_TESTS"
+  ],
+  "risk_level": "LOW",
+  "max_execution_seconds": 300,
+  "max_retries": 2,
+  "human_approval_required": true,
+  "completion_conditions": [
+    "All required tests pass",
+    "A human approves the review gate"
+  ],
+  "agent": "scripted:examples/agents/wincare_max_history.json"
+}

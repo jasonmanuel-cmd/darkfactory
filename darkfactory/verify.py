@@ -16,7 +16,23 @@ from pathlib import Path
 from .errors import PolicyViolation
 
 OUTPUT_TAIL_CHARS = 4000
-SAFE_ENV_KEYS = ("PATH", "SYSTEMROOT", "TEMP", "TMP")
+SAFE_ENV_KEYS = (
+    "PATH",
+    "SYSTEMROOT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "LOCALAPPDATA",
+    "APPDATA",
+    "PROGRAMFILES",
+    "PROGRAMFILES(X86)",
+    "PROGRAMDATA",
+    "WINDIR",
+    "SystemDrive",
+    "COMSPEC",
+    "PATHEXT",
+    "PSModulePath",
+)
 
 
 @dataclass(frozen=True)
@@ -42,7 +58,8 @@ def parse_command(command: str, prefixes: tuple[str, ...]) -> list[str]:
     for prefix in prefixes:
         parts = prefix.split()
         if argv[: len(parts)] == parts:
-            argv[0] = sys.executable
+            if argv[0] in ("python", "python3"):
+                argv[0] = sys.executable
             return argv
     raise PolicyViolation("POLICY_FAILURE", f"command is not in the workflow allowlist: {command!r}")
 

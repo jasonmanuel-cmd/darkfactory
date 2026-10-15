@@ -214,6 +214,36 @@ class PipelineTests(FactoryCase):
         with self.assertRaises(FactoryError):
             approve(self.runs, "fix-average-001", "tester")
 
+    def test_dotnet_workflow_classification_and_command_parsing(self):
+        from darkfactory.verify import parse_command
+        from darkfactory.classify import classify
+        parsed = parse_command("dotnet test MyTests/MyTests.csproj", ("dotnet test", "dotnet build"))
+        self.assertEqual(parsed[0], "dotnet")
+        self.assertEqual(parsed[1], "test")
+
+        spec = parse_spec({
+            "task_id": "test-dotnet-001",
+            "task_type": "bug_fix",
+            "objective": "Test dotnet classification",
+            "repository": str(self.repo),
+            "problem_description": "prob",
+            "requirements": ["req"],
+            "acceptance_criteria": ["crit"],
+            "constraints": ["const"],
+            "allowed_files": ["calc.py"],
+            "required_tests": ["dotnet test MyTests/MyTests.csproj"],
+            "security_requirements": ["sec"],
+            "permissions": ["READ_REPOSITORY", "WRITE_REPOSITORY", "EXECUTE_TESTS"],
+            "risk_level": "LOW",
+            "max_execution_seconds": 60,
+            "max_retries": 1,
+            "human_approval_required": True,
+            "completion_conditions": ["cond"],
+            "agent": "scripted:examples/agents/fix_average.json"
+        })
+        cl = classify(spec, REGISTRY)
+        self.assertEqual(cl.workflow_id, "wf.bug-fix.dotnet.v1")
+
 
 class FakeModel:
     """Stands in for the Anthropic transport: returns scripted replies and records prompts."""

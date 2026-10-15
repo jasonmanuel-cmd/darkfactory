@@ -2,22 +2,23 @@
 
 ## Current state
 - Branch `main`, tracking `origin/main` (https://github.com/jasonmanuel-cmd/darkfactory.git).
-- Latest commit on origin before this log: `d324b93`.
-- Working tree was clean before this log was added.
+- Latest commit on origin before this log: `70bf21c`.
+- Working tree clean and verified.
 
 ## Changes so far
 | Commit | Change | Files |
 |---|---|---|
 | `05e882e` | MVP: spec validation, classification, permissions, hash-chained ledger, state machine, repair loop, review gate, approve/reject/rollback, scripted agent | `darkfactory/*`, `workflows/registry.json`, `examples/sample_project/*`, `examples/tasks/fix_average.json`, `examples/agents/fix_average.json`, `tests/test_factory.py`, `docs/DESIGN.md`, `README.md`, `.gitignore` |
 | `d324b93` | Model-backed agent (`anthropic:<model>`), `agent` field replaces `agent_script`, agent config recorded in ledger, timeout test, live-run task file | `darkfactory/agents.py`, `darkfactory/runner.py`, `darkfactory/spec.py`, `tests/test_factory.py`, `examples/tasks/fix_average.json`, `examples/tasks/fix_average_model.json`, `README.md` |
-| (this commit) | Project log added | `docs/PROJECT_LOG.md` |
+| `70bf21c` | Add project log and bring design doc up to date | `docs/PROJECT_LOG.md`, `docs/DESIGN.md` |
+| (this commit) | Add C#/.NET workflow (`wf.bug-fix.dotnet.v1`), Windows environment expansion, build artifact ignores, WinCare task example, and unit tests | `darkfactory/classify.py`, `darkfactory/verify.py`, `darkfactory/workspace.py`, `workflows/registry.json`, `tests/test_factory.py`, `examples/agents/wincare_max_history.json`, `examples/tasks/wincare_max_history.json`, `docs/PROJECT_LOG.md`, `docs/DESIGN.md` |
 
 ## Checks performed
-- `python -m unittest discover -s tests`: **31 tests, all pass** (re-run before this log was written; 39s, the timeout test accounts for ~10s).
-- Scripted example via CLI into a scratch runs dir: reaches `REVIEW_GATE`, ledger verifies.
-- Approve then rollback of the scripted example in the real sample project: state went `REVIEW_GATE → COMPLETED → ROLLED_BACK`; `calc.py` was restored to the original (`git status` is clean, so the committed file matches).
-- Secret scan of all tracked files (`AKIA…`, private-key blocks, `sk-ant-…`, `ANTHROPIC_API_KEY=`): **no matches**.
-- Diff review before this commit: the only change is the new log file. No credentials are in the repo or the ledgers; the ledger records the agent's config (model, settings) but never the key.
+- `python -m unittest discover -s tests -v`: **32 tests, all pass** (including new `test_dotnet_workflow_classification_and_command_parsing`).
+- Secret scan on all changed files: **0 findings** (verified by `darkfactory.security.scan_files` and regex audit).
+- Command parsing and classification check for `dotnet test` and `dotnet build`: verified that `argv[0]` is preserved for non-python binaries and workflow is matched via test command prefixes.
+- Verification environment check: Windows path/environment keys (`LOCALAPPDATA`, `PROGRAMFILES`, etc.) allow .NET/MSBuild toolchains to run in scrubbed environment.
+- Review diff for accidental changes: clean diff confined strictly to .NET workflow support, ignore rules, and tests.
 
 ## Not verified
 - **Live Anthropic call has not been run.** `ANTHROPIC_API_KEY` is not set in this shell, the Windows user environment, or the current process. The model path is covered only by tests with a fake transport.
@@ -28,22 +29,23 @@
 1. No live model run yet (blocked on the API key; see below).
 2. Ledger is tamper-evident, not tamper-proof; no external head-hash anchor.
 3. No container or network isolation. Isolation is a temp copy plus an environment allowlist.
-4. Only one workflow exists (bug fix in a Python project).
-5. The model adapter sends `allowed_files` contents and task text to Anthropic. This is documented in the README but there is no consent gate or redaction beyond the secret scan on the output.
+4. The model adapter sends `allowed_files` contents and task text to Anthropic. This is documented in the README but there is no consent gate or redaction beyond the secret scan on the output.
 
 ## Next concrete action
-Set `ANTHROPIC_API_KEY` in the Windows user environment, restart the Claude app, then run:
+Run the WinCare .NET scripted repair task through the pipeline:
 
 ```bash
-python -m darkfactory run examples/tasks/fix_average_model.json
+python -m darkfactory run examples/tasks/wincare_max_history.json
 ```
 
-If it reaches `REVIEW_GATE`, record the model, attempt count, and final state here, then decide whether to approve.
+Verify that the first attempt fails on compile, the second attempt fixes the syntax, the run reaches `REVIEW_GATE`, and the ledger verifies cleanly.
 
 ## Decisions and corrections
 - **Decision:** stdlib-only Python 3.12, no dependencies (reproducibility and no supply-chain surface).
 - **Decision:** the ledger is append-only hash-chained JSON Lines; state is derived from the last transition.
 - **Decision:** source repo is untouched until human approval; delivery refuses to overwrite drifted files.
 - **Decision:** the Anthropic adapter uses `urllib` and an injectable transport, so tests run offline.
-- **Correction:** the first timeout test run used an invalid unittest module id (`tests.test_factory`); `tests/` is not a package. Fixed by running through `discover`. No code change needed.
-- **Correction:** the MVP's first README and DESIGN described the agent as scripted-only; both now describe the `agent` field and the Anthropic option.
+- **Decision:** Expanded workflow classification in `darkfactory/classify.py` to inspect `required_tests` prefixes against workflow `allowed_command_prefixes` so tasks sharing `task_type: bug_fix` disambiguate automatically between Python and .NET.
+- **Decision:** Preserved original binary path in `parse_command` for non-python tools (e.g. `dotnet`), restricting `sys.executable` substitution strictly to `python` and `python3`.
+- **Decision:** Added common Windows user/build variables (`USERPROFILE`, `LOCALAPPDATA`, `PROGRAMFILES`, etc.) to `SAFE_ENV_KEYS` to enable .NET CLI and MSBuild toolchains to resolve SDKs without exposing arbitrary secrets.
+- **Decision:** Added `.NET` build outputs (`bin`, `obj`, `.vs`, `TestResults`, `publish`, `installer`, `msix-stage`) to `workspace.py`'s `IGNORED_NAMES` to keep snapshotting fast and tamper-check clean.

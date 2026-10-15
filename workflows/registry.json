@@ -14,6 +14,21 @@
       "human_approval_required": true,
       "rollback_strategy": "Originals are backed up under runs/<task>/backup before delivery. Rollback restores them and refuses if the source changed after delivery.",
       "timeout_seconds": 600
+    },
+    {
+      "id": "wf.bug-fix.dotnet.v1",
+      "name": "Dotnet bug fix verified by dotnet test",
+      "description": "C#/.NET bug fixes confined to an explicit file allowlist, verified by allowlisted dotnet commands, and held at a human review gate before delivery.",
+      "task_types": ["bug_fix"],
+      "max_risk": "MEDIUM",
+      "allowed_permissions": ["READ_REPOSITORY", "WRITE_REPOSITORY", "EXECUTE_TESTS"],
+      "allowed_command_prefixes": ["dotnet test", "dotnet build"],
+      "repairable_failures": ["TEST_FAILURE"],
+      "max_retries": 2,
+      "autonomy_level": 3,
+      "human_approval_required": true,
+      "rollback_strategy": "Originals are backed up under runs/<task>/backup before delivery. Rollback restores them and refuses if the source changed after delivery.",
+      "timeout_seconds": 600
     }
   ]
 }

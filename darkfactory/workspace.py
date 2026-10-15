@@ -13,7 +13,19 @@ from pathlib import Path
 from .errors import AgentFailure, PolicyViolation
 from .spec import safe_relative_path
 
-IGNORED_NAMES = ("__pycache__", ".git", "runs", ".pytest_cache")
+IGNORED_NAMES = (
+    "__pycache__",
+    ".git",
+    "runs",
+    ".pytest_cache",
+    "bin",
+    "obj",
+    ".vs",
+    "TestResults",
+    "publish",
+    "installer",
+    "msix-stage",
+)
 MAX_FILE_BYTES = 200_000
 
 

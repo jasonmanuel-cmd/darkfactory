@@ -27,11 +27,20 @@ def _max_risk(a: str, b: str) -> str:
 
 
 def classify(spec: TaskSpec, workflows: dict[str, Workflow]) -> Classification:
-    candidates = sorted((w for w in workflows.values() if spec.task_type in w.task_types), key=lambda w: w.id)
+    candidates = [w for w in workflows.values() if spec.task_type in w.task_types]
     if not candidates:
         supported = sorted({t for w in workflows.values() for t in w.task_types})
         raise Block(f"unsupported task_type {spec.task_type!r}; supported: {supported}")
-    workflow = candidates[0]
+
+    # Prefer a workflow whose command allowlist matches the spec's required tests
+    matching = [
+        w for w in candidates
+        if any(
+            any(test.strip().startswith(prefix) for prefix in w.allowed_command_prefixes)
+            for test in spec.required_tests
+        )
+    ]
+    workflow = sorted(matching or candidates, key=lambda w: w.id)[0]
 
     risk = spec.risk_level
     reasons: list[str] = []
